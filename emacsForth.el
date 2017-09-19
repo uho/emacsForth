@@ -175,6 +175,10 @@ Special Commands:
    (forth-defcompiler "repeat" forth-repear)
    (forth-defcompiler "again" forth-again)
    (forth-defcompiler "until" forth-until)
+   (forth-defprimitive "t{" forth-begin-test)
+   (forth-defprimitive "}t" forth-end-test)
+   (forth-defprimitive "->" forth-leads-to)
+   (forth-defprimitive "testing" forth-testing)
    ))
 
    
@@ -298,9 +302,9 @@ Special Commands:
     (forth-start-interpretation)))
 
 (defun forth-ahead ()
-  (forth-compile (function forth-branch))
-  (push forth-dp forth-stack)
-  (forth-compile 'UNRESOLVED-FORWARD-BRANCH))
+  (let ((bra (cons (function forth-branch) 'UNRESOLVED-FORWARD-BRANCH)))
+    (forth-compile bra)
+    (push bra forth-stack)))
 
 (defun forth-question-branch (dest)
   (if (eql 0 (pop forth-stack))
@@ -333,7 +337,7 @@ Special Commands:
 (defun forth-repeat ())
 
 (defun forth-until ()
-  (let* ((orig (cdr (pop forth-stack)))
+  (let* ((orig (pop forth-stack))
 	 (bra (cons (function forth-question-branch) orig)))
     (forth-compile bra)))
 
@@ -534,3 +538,31 @@ Special Commands:
       (setq forth-input saved-input)
       (setq forth-input-index saved-index))))
     
+
+;;: test support
+
+(defvar forth-saved-stack nil)
+(defvar forth-actual-result nil)
+
+(defun forth-begin-test ()
+  (setq forth-saved-stack forth-stack))
+
+;;; TODO show current line on error
+(defun forth-end-test ()
+  (let ((expected-result forth-stack))
+    (setq forth-stack forth-saved-stack)
+    (cond
+     ((not (eql (length forth-actual-result) (length expected-result)))
+      (insert (format "\n  Error: unexpected stack depth")))
+     ((not (equal forth-actual-result expected-result))
+      (insert (format "\n  Error: unexpected result")))
+     (t nil))))
+
+(defun forth-leads-to ()
+    (setq forth-actual-result forth-stack)
+    (setq forth-stack forth-saved-stack))
+
+(defun forth-testing ()
+  (let ((headline (forth-parse-name)))
+    (insert (format "\ntesting %s" headline))))
+
